@@ -560,67 +560,114 @@ function die() {
 	}
 }
 
-// Initialize PixiJS
+// Loading screen elements
+const loadingScreen = document.getElementById('loadingScreen');
+const loadingFill = document.getElementById('loadingFill');
+const loadingText = document.getElementById('loadingText');
+
+// Update loading progress
+function updateLoadingProgress(progress, text) {
+	loadingFill.style.width = `${progress}%`;
+	loadingText.textContent = text;
+}
+
+// Initialize PixiJS with parallel loading
 async function initPixi() {
-	// Create PixiJS application
-	app = new Application();
+	try {
+		updateLoadingProgress(10, 'Initializing renderer...');
 
-	await app.init({
-		canvas: canvas,
-		background: 'transparent',
-		antialias: true,
-		resolution: window.devicePixelRatio || 1,
-		autoDensity: true,
-		width: 800,
-		height: 450
-	});
+		// Create PixiJS application
+		app = new Application();
 
-	// Load textures
-	const bucketTexture = await Assets.load('assets/svgs/bucket.svg');
-	const sawitTexture = await Assets.load('assets/svgs/sawit.svg');
+		await app.init({
+			canvas: canvas,
+			background: 'transparent',
+			antialias: true,
+			resolution: window.devicePixelRatio || 1,
+			autoDensity: true,
+			width: 800,
+			height: 450
+		});
 
-	// Create sprites
-	bucketSprite = new Sprite(bucketTexture);
-	bucketSprite.x = player.x;
-	bucketSprite.y = player.y;
-	bucketSprite.width = player.w;
-	bucketSprite.height = player.h;
+		updateLoadingProgress(30, 'Loading game assets...');
 
-	sawitSprite = new Sprite(sawitTexture);
-	sawitSprite.x = sawit.x;
-	sawitSprite.y = sawit.y;
-	sawitSprite.width = sawit.size;
-	sawitSprite.height = sawit.size;
+		// ✅ PARALLEL LOADING - Load both textures at once!
+		const [bucketTexture, sawitTexture] = await Promise.all([
+			Assets.load('assets/svgs/bucket.svg'),
+			Assets.load('assets/svgs/sawit.svg')
+		]);
 
-	// Create particle container
-	particleContainer = new Container();
+		updateLoadingProgress(70, 'Creating sprites...');
 
-	// Add sprites to stage
-	app.stage.addChild(bucketSprite);
-	app.stage.addChild(sawitSprite);
-	app.stage.addChild(particleContainer);
+		// Create sprites
+		bucketSprite = new Sprite(bucketTexture);
+		bucketSprite.x = player.x;
+		bucketSprite.y = player.y;
+		bucketSprite.width = player.w;
+		bucketSprite.height = player.h;
 
-	// Resize canvas to fit
-	resizeCanvas();
+		sawitSprite = new Sprite(sawitTexture);
+		sawitSprite.x = sawit.x;
+		sawitSprite.y = sawit.y;
+		sawitSprite.width = sawit.size;
+		sawitSprite.height = sawit.size;
+
+		// Create particle container
+		particleContainer = new Container();
+
+		// Add sprites to stage
+		app.stage.addChild(bucketSprite);
+		app.stage.addChild(sawitSprite);
+		app.stage.addChild(particleContainer);
+
+		updateLoadingProgress(90, 'Finalizing...');
+
+		// Resize canvas to fit
+		resizeCanvas();
+
+		updateLoadingProgress(100, 'Ready!');
+
+		// Start menu music after assets loaded
+		if (menuMusic && !menuMusicStarted) {
+			menuMusic.volume = 0.6; // Set volume to 60%
+			menuMusic.play().then(() => {
+				menuMusicStarted = true;
+			}).catch(() => {
+				// Autoplay blocked by browser - will start on user interaction
+				console.log('Menu music blocked, waiting for user interaction');
+			});
+		}
+
+		// Wait a bit to show 100%, then show start screen
+		setTimeout(() => {
+			loadingScreen.style.display = 'none';
+			startScreen.style.display = 'flex';
+		}, 500);
+
+	} catch (error) {
+		console.error('Failed to initialize game:', error);
+		updateLoadingProgress(0, 'Error loading game. Please refresh.');
+	}
 }
 
 // Initialize PixiJS and start
 initPixi().catch(console.error);
 
-// Start menu music when page loads (after user interaction)
-// Try to play on first user interaction to avoid autoplay restrictions
+// Fallback: Start menu music on user interaction if autoplay was blocked
 let menuMusicStarted = false;
 function startMenuMusic() {
 	if (!menuMusicStarted && menuMusic) {
 		menuMusic.volume = 0.6; // Set volume to 60%
-		menuMusic.play().catch(() => {
-			// Autoplay blocked, will start on button click
+		menuMusic.play().then(() => {
+			menuMusicStarted = true;
+			console.log('Menu music started via user interaction');
+		}).catch(() => {
+			// Still blocked
 		});
-		menuMusicStarted = true;
 	}
 }
 
-// Start menu music on any user interaction
+// Fallback: Start menu music on any user interaction (if autoplay blocked)
 document.addEventListener("click", startMenuMusic, { once: true });
 document.addEventListener("touchstart", startMenuMusic, { once: true });
 document.addEventListener("keydown", startMenuMusic, { once: true });

@@ -28,13 +28,32 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
+
+    <!-- Preload critical game assets for faster loading -->
+    <link rel="preload" href="assets/svgs/bucket.svg" as="image" />
+    <link rel="preload" href="assets/svgs/sawit.svg" as="image" />
   </head>
 
   <body>
     <div class="stars"></div>
     <div class="twinkling"></div>
 
-    <div id="startScreen" class="screen">
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="screen">
+      <div class="game-title">
+        <span class="title-emoji">🌴</span>
+        <h1>SAWIT<br />HUNTER</h1>
+        <span class="title-emoji">🌴</span>
+      </div>
+      <div class="loading-container">
+        <div class="loading-bar">
+          <div class="loading-fill" id="loadingFill"></div>
+        </div>
+        <div class="loading-text" id="loadingText">Loading assets...</div>
+      </div>
+    </div>
+
+    <div id="startScreen" class="screen" style="display: none;">
       <div class="game-title">
         <span class="title-emoji">🌴</span>
         <h1>SAWIT<br />HUNTER</h1>
@@ -141,22 +160,39 @@
       </div>
     </div>
 
+    <!-- Audio files with preload="metadata" for faster initial load -->
+    <!-- Only critical sounds use preload="auto" -->
     <audio
       id="scoreSound"
       src="assets/sounds/hey-antek-antek-asing-prabowo.mp3"
+      preload="metadata"
     ></audio>
-    <audio id="deathSound" src="assets/sounds/hidup-jokowi.mp3"></audio>
-    <audio id="catchSound" src="assets/sounds/jokowi-kaget.mp3"></audio>
-    <audio id="spawnSound" src="assets/sounds/solid.mp3"></audio>
+    <audio
+      id="deathSound"
+      src="assets/sounds/hidup-jokowi.mp3"
+      preload="metadata"
+    ></audio>
+    <audio
+      id="catchSound"
+      src="assets/sounds/jokowi-kaget.mp3"
+      preload="auto"
+    ></audio>
+    <audio
+      id="spawnSound"
+      src="assets/sounds/solid.mp3"
+      preload="auto"
+    ></audio>
     <audio
       id="menuMusic"
       src="assets/sounds/selamat-berjuang-jokowi.mp3"
       loop
+      preload="auto"
     ></audio>
     <audio
       id="endingMusic"
       src="assets/sounds/penyanyi-solo-gatau-siapa.mp3"
       loop
+      preload="metadata"
     ></audio>
 
     <!-- Development: use game.js with Bun bundling -->
