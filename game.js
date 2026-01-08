@@ -1,5 +1,6 @@
+import { Application, Assets, Sprite, Container, Graphics } from 'pixi.js';
+
 const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
 
 const startScreen = document.getElementById("startScreen");
 const gameContainer = document.getElementById("gameContainer");
@@ -28,6 +29,12 @@ let username = "";
 let running = false;
 let score = 0;
 let highScore = Number(localStorage.getItem("highScore")) || 0;
+
+// PixiJS Application
+let app;
+let bucketSprite;
+let sawitSprite;
+let particleContainer;
 
 // Detect if mobile device
 function isMobileDevice() {
@@ -60,8 +67,10 @@ function resizeCanvas() {
 		canvasWidth = canvasHeight * aspectRatio;
 	}
 
-	canvas.width = canvasWidth;
-	canvas.height = canvasHeight;
+	// Resize PixiJS renderer
+	if (app) {
+		app.renderer.resize(canvasWidth, canvasHeight);
+	}
 
 	// Adjust player position - bucket positioned lower on mobile for more catching space
 	if (player) {
@@ -77,10 +86,18 @@ function resizeCanvas() {
 		// On mobile, position bucket at 85% down (more space above)
 		// On desktop, position bucket at 84% down
 		const bucketPositionRatio = isMobile ? 0.88 : 0.84;
-		player.y = canvas.height * bucketPositionRatio;
+		player.y = app.renderer.height * bucketPositionRatio;
 
 		// Clamp position AFTER size is updated to prevent edge bug
-		player.x = Math.max(0, Math.min(player.x, canvas.width - player.w));
+		player.x = Math.max(0, Math.min(player.x, app.renderer.width - player.w));
+
+		// Update sprite if exists
+		if (bucketSprite) {
+			bucketSprite.width = player.w;
+			bucketSprite.height = player.h;
+			bucketSprite.x = player.x;
+			bucketSprite.y = player.y;
+		}
 	}
 
 	// Adjust sawit position and size
@@ -88,16 +105,17 @@ function resizeCanvas() {
 		// Slightly smaller sawit on mobile for better proportion
 		sawit.size = isMobile ? 35 : 40;
 		// Clamp position AFTER size is updated
-		sawit.x = Math.max(0, Math.min(sawit.x, canvas.width - sawit.size));
+		sawit.x = Math.max(0, Math.min(sawit.x, app.renderer.width - sawit.size));
+
+		// Update sprite if exists
+		if (sawitSprite) {
+			sawitSprite.width = sawit.size;
+			sawitSprite.height = sawit.size;
+			sawitSprite.x = sawit.x;
+			sawitSprite.y = sawit.y;
+		}
 	}
 }
-
-// Load images
-const bucketImg = new Image();
-bucketImg.src = "assets/svgs/bucket.svg";
-
-const sawitImg = new Image();
-sawitImg.src = "assets/svgs/sawit.svg";
 
 // Player (Bucket) - initial values, will be adjusted by resizeCanvas()
 let player = {
@@ -199,12 +217,12 @@ canvas.addEventListener("touchmove", (e) => {
 		const touchX = touch.clientX - rect.left;
 
 		// Scale touch coordinates to canvas coordinates
-		const scaleX = canvas.width / rect.width;
+		const scaleX = app.renderer.width / rect.width;
 		const canvasX = touchX * scaleX;
 
 		// Move bucket to follow finger, accounting for where user grabbed it
 		player.x = canvasX - touchOffsetX;
-		player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+		player.x = Math.max(0, Math.min(app.renderer.width - player.w, player.x));
 	}
 });
 
@@ -248,19 +266,19 @@ canvas.addEventListener("mousemove", (e) => {
 		const mouseX = e.clientX - rect.left;
 
 		// Scale mouse coordinates to canvas coordinates
-		const scaleX = canvas.width / rect.width;
+		const scaleX = app.renderer.width / rect.width;
 		const canvasX = mouseX * scaleX;
 
 		// Move bucket to follow mouse, accounting for where user grabbed it
 		player.x = canvasX - mouseOffsetX;
-		player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+		player.x = Math.max(0, Math.min(app.renderer.width - player.w, player.x));
 	} else {
 		// Change cursor when hovering over bucket
 		const rect = canvas.getBoundingClientRect();
 		const mouseX = e.clientX - rect.left;
 		const mouseY = e.clientY - rect.top;
-		const scaleX = canvas.width / rect.width;
-		const scaleY = canvas.height / rect.height;
+		const scaleX = app.renderer.width / rect.width;
+		const scaleY = app.renderer.height / rect.height;
 		const canvasX = mouseX * scaleX;
 		const canvasY = mouseY * scaleY;
 
@@ -312,9 +330,9 @@ document.getElementById("playBtn").onclick = () => {
 	// Reset game state with proper canvas dimensions
 	sawit.speed = 2.5;  // Start slow for all devices
 	sawit.y = -40;
-	sawit.x = Math.random() * (canvas.width - sawit.size);
+	sawit.x = Math.random() * (app.renderer.width - sawit.size);
 	sawit.caught = false;  // Reset caught flag
-	player.x = canvas.width / 2 - player.w / 2;
+	player.x = app.renderer.width / 2 - player.w / 2;
 
 	startScreen.style.display = "none";
 	gameContainer.style.display = "flex";
@@ -356,7 +374,7 @@ function update() {
 	if (leftPressed) player.x -= player.speed;
 	if (rightPressed) player.x += player.speed;
 
-	player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+	player.x = Math.max(0, Math.min(app.renderer.width - player.w, player.x));
 
 	sawit.y += sawit.speed;
 
@@ -372,12 +390,15 @@ function update() {
 			// Ignore audio errors
 		}
 
+		// Create particle burst effect at catch position
+		createParticleBurst(sawit.x + sawit.size / 2, sawit.y + sawit.size / 2);
+
 		addScore(10);
 		resetSawit();  // Reset immediately
 	}
 
 	// Only trigger game over if sawit passed the bottom and wasn't caught
-	if (!sawit.caught && sawit.y > canvas.height) {
+	if (!sawit.caught && sawit.y > app.renderer.height) {
 		try {
 			spawnSound.pause();
 			spawnSound.currentTime = 0;
@@ -389,13 +410,78 @@ function update() {
 }
 
 function draw() {
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	// Update sprite positions (PixiJS handles rendering automatically)
+	if (bucketSprite) {
+		bucketSprite.x = player.x;
+		bucketSprite.y = player.y;
+		bucketSprite.width = player.w;
+		bucketSprite.height = player.h;
+	}
 
-	// Draw bucket
-	ctx.drawImage(bucketImg, player.x, player.y, player.w, player.h);
+	if (sawitSprite) {
+		sawitSprite.x = sawit.x;
+		sawitSprite.y = sawit.y;
+		sawitSprite.width = sawit.size;
+		sawitSprite.height = sawit.size;
+	}
 
-	// Draw sawit
-	ctx.drawImage(sawitImg, sawit.x, sawit.y, sawit.size, sawit.size);
+	// PixiJS automatically renders the scene via WebGL!
+}
+
+// ===== PARTICLE EFFECTS (WebGL Benefits!) =====
+function createParticleBurst(x, y) {
+	const particleCount = 15;
+	const particles = [];
+
+	// Colors for particles (green/yellow for palm theme)
+	const colors = [0x4CAF50, 0x8BC34A, 0xCDDC39, 0xFFEB3B, 0xFFC107];
+
+	for (let i = 0; i < particleCount; i++) {
+		const particle = new Graphics();
+		const size = Math.random() * 6 + 3;
+		const color = colors[Math.floor(Math.random() * colors.length)];
+
+		particle.circle(0, 0, size);
+		particle.fill(color);
+		particle.x = x;
+		particle.y = y;
+
+		// Random velocity for burst effect
+		const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.5;
+		const speed = Math.random() * 4 + 2;
+		particle.vx = Math.cos(angle) * speed;
+		particle.vy = Math.sin(angle) * speed;
+		particle.life = 1.0; // Start at full life
+		particle.gravity = 0.15;
+
+		particleContainer.addChild(particle);
+		particles.push(particle);
+	}
+
+	// Animate particles
+	function animateParticles() {
+		for (let i = particles.length - 1; i >= 0; i--) {
+			const p = particles[i];
+			p.x += p.vx;
+			p.y += p.vy;
+			p.vy += p.gravity; // Apply gravity
+			p.life -= 0.03; // Fade out
+			p.alpha = p.life;
+
+			// Remove dead particles
+			if (p.life <= 0) {
+				particleContainer.removeChild(p);
+				particles.splice(i, 1);
+			}
+		}
+
+		// Continue animation if particles remain
+		if (particles.length > 0) {
+			requestAnimationFrame(animateParticles);
+		}
+	}
+
+	animateParticles();
 }
 
 // ===== SCORE LOGIC =====
@@ -423,7 +509,7 @@ function addScore(amount) {
 }
 
 function resetSawit() {
-	sawit.x = Math.random() * (canvas.width - sawit.size);
+	sawit.x = Math.random() * (app.renderer.width - sawit.size);
 	sawit.y = -40;
 	sawit.caught = false;  // Reset caught flag for new sawit
 
@@ -474,8 +560,52 @@ function die() {
 	}
 }
 
-// Initialize canvas size
-resizeCanvas();
+// Initialize PixiJS
+async function initPixi() {
+	// Create PixiJS application
+	app = new Application();
+
+	await app.init({
+		canvas: canvas,
+		background: 'transparent',
+		antialias: true,
+		resolution: window.devicePixelRatio || 1,
+		autoDensity: true,
+		width: 800,
+		height: 450
+	});
+
+	// Load textures
+	const bucketTexture = await Assets.load('assets/svgs/bucket.svg');
+	const sawitTexture = await Assets.load('assets/svgs/sawit.svg');
+
+	// Create sprites
+	bucketSprite = new Sprite(bucketTexture);
+	bucketSprite.x = player.x;
+	bucketSprite.y = player.y;
+	bucketSprite.width = player.w;
+	bucketSprite.height = player.h;
+
+	sawitSprite = new Sprite(sawitTexture);
+	sawitSprite.x = sawit.x;
+	sawitSprite.y = sawit.y;
+	sawitSprite.width = sawit.size;
+	sawitSprite.height = sawit.size;
+
+	// Create particle container
+	particleContainer = new Container();
+
+	// Add sprites to stage
+	app.stage.addChild(bucketSprite);
+	app.stage.addChild(sawitSprite);
+	app.stage.addChild(particleContainer);
+
+	// Resize canvas to fit
+	resizeCanvas();
+}
+
+// Initialize PixiJS and start
+initPixi().catch(console.error);
 
 // Start menu music when page loads (after user interaction)
 // Try to play on first user interaction to avoid autoplay restrictions

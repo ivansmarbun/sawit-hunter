@@ -1,37 +1,26 @@
+import index from "./index.html";
+
 Bun.serve({
   port: 3000,
-  async fetch(req) {
-    const url = new URL(req.url);
-    const path = url.pathname;
+  routes: {
+    "/": index,
+    // Serve static assets
+    "/assets/*": async (req) => {
+      const url = new URL(req.url);
+      const filePath = `.${url.pathname}`;
+      const file = Bun.file(filePath);
 
-    // Serve index.html
-    if (path === "/") {
-      const file = Bun.file("./index.html");
+      if (await file.exists()) {
+        return new Response(file);
+      }
+      return new Response("Not Found", { status: 404 });
+    },
+    "/style.css": async () => {
+      const file = Bun.file("./style.css");
       return new Response(file, {
-        headers: {
-          "Content-Type": "text/html",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0"
-        },
+        headers: { "Content-Type": "text/css" }
       });
     }
-
-    // Serve static files
-    const filePath = `.${path}`;
-    const file = Bun.file(filePath);
-
-    if (await file.exists()) {
-      return new Response(file, {
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0"
-        }
-      });
-    }
-
-    return new Response("Not Found", { status: 404 });
   },
   development: {
     hmr: true,
