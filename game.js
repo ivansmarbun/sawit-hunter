@@ -107,7 +107,7 @@ let sawit = {
 	x: Math.random() * 760,
 	y: -40,
 	size: 40,
-	speed: 4
+	speed: 2.5  // Start slow for all devices
 };
 
 // Controls
@@ -297,7 +297,7 @@ document.getElementById("playBtn").onclick = () => {
 	resizeCanvas();
 
 	// Reset game state with proper canvas dimensions
-	sawit.speed = 4;
+	sawit.speed = 2.5;  // Start slow for all devices
 	sawit.y = -40;
 	sawit.x = Math.random() * (canvas.width - sawit.size);
 	player.x = canvas.width / 2 - player.w / 2;
@@ -380,7 +380,11 @@ function addScore(amount) {
 function resetSawit() {
 	sawit.x = Math.random() * (canvas.width - sawit.size);
 	sawit.y = -40;
-	sawit.speed += 0.15;
+
+	// Only increase speed after score reaches 50, then increment faster
+	if (score >= 50) {
+		sawit.speed += 0.3;  // Faster increment after score 50
+	}
 }
 
 function collide(a, b) {
