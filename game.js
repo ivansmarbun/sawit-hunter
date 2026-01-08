@@ -572,6 +572,9 @@ const loadingScreen = document.getElementById('loadingScreen');
 const loadingFill = document.getElementById('loadingFill');
 const loadingText = document.getElementById('loadingText');
 
+// Menu music state
+let menuMusicStarted = false;
+
 // Update loading progress
 function updateLoadingProgress(progress, text) {
 	loadingFill.style.width = `${progress}%`;
@@ -639,9 +642,9 @@ async function initPixi() {
 			menuMusic.volume = 0.6; // Set volume to 60%
 			menuMusic.play().then(() => {
 				menuMusicStarted = true;
+				// Music started successfully!
 			}).catch(() => {
-				// Autoplay blocked by browser - will start on user interaction
-				console.log('Menu music blocked, waiting for user interaction');
+				// Autoplay blocked - will start on first user click/touch
 			});
 		}
 
@@ -661,15 +664,13 @@ async function initPixi() {
 initPixi().catch(console.error);
 
 // Fallback: Start menu music on user interaction if autoplay was blocked
-let menuMusicStarted = false;
 function startMenuMusic() {
 	if (!menuMusicStarted && menuMusic) {
-		menuMusic.volume = 0.6; // Set volume to 60%
+		menuMusic.volume = 0.6;
 		menuMusic.play().then(() => {
 			menuMusicStarted = true;
-			console.log('Menu music started via user interaction');
 		}).catch(() => {
-			// Still blocked
+			// Still blocked - browser restriction
 		});
 	}
 }
